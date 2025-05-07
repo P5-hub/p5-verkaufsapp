@@ -49,7 +49,11 @@ HAENDLER_DATEI = os.path.join(DATEN_ORDNER, "App_Haendler_mit_Passwoertern.xlsx"
 
 # ==== Google Drive Setup ====
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+creds = service_account.Credentials.from_service_account_info(
+    st.secrets["google_service_account"],
+    scopes=SCOPES
+)
+
 gclient = gspread.authorize(creds)
 # Google Drive Zielordner und Freigabe-Einstellungen
 FOLDER_ID = "1oh4nWRqYE2k4K-EUts93cU7pKjatbfB4"
