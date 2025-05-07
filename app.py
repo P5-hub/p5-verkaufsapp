@@ -726,19 +726,19 @@ else:
     login()
 
 st.markdown("---")
-st.header("🚀 Upload-Test (manuell)")
-
-if st.button("🔼 Test-Upload starten"):
-    print("✅ Upload-Block wurde manuell ausgelöst!")
-    test_eintrag = {
-        "datum": "2025-05-05",
-        "kw": "19",
-        "kommentar": "Testeintrag manuell",
-        "eintraege": [{
-            "Produktname": "Testprodukt",
-            "EAN": "1234567890123",
-            "Menge": 1,
-            "Preis": "99.00"
-        }]
-    }
-    google_drive_upload("testmodus", "Demo-Händler", test_eintrag)
+#st.header("🚀 Upload-Test (manuell)")
+#
+#if st.button("🔼 Test-Upload starten"):
+#    print("✅ Upload-Block wurde manuell ausgelöst!")
+#    test_eintrag = {
+#        "datum": "2025-05-05",
+#        "kw": "19",
+#        "kommentar": "Testeintrag manuell",
+#        "eintraege": [{
+#            "Produktname": "Testprodukt",
+#            "EAN": "1234567890123",
+#            "Menge": 1,
+#            "Preis": "99.00"
+#        }]
+#    }
+#    google_drive_upload("testmodus", "Demo-Händler", test_eintrag)
