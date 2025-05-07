@@ -1,3 +1,4 @@
+from google.oauth2 import service_account
 import streamlit as st
 import gspread
 from gspread.exceptions import SpreadsheetNotFound, WorksheetNotFound
