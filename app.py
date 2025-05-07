@@ -125,7 +125,12 @@ def google_drive_upload(modus, haendler_name, eintrag,
         from datetime import datetime
 
         daten = []
-        zeitstempel = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(ZoneInfo("Europe/Zurich"))
+        zeitstempel = now.strftime("%Y-%m-%d %H:%M:%S")
+
 
         for produkt in eintrag.get("eintraege", []):
             daten.append([
@@ -725,7 +730,7 @@ else:
     """, unsafe_allow_html=True)
     login()
 
-st.markdown("---")
+#st.markdown("---")
 #st.header("🚀 Upload-Test (manuell)")
 #
 #if st.button("🔼 Test-Upload starten"):
