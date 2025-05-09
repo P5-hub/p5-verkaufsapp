@@ -10,7 +10,87 @@ import os
 import pandas as pd
 import traceback
 import time
+import yagmail
 
+def sende_bestaetigungs_mail(modus, haendlername, login_nr, daten, kommentar=""):
+    try:
+        yag = yagmail.SMTP("matthias.violante@gmail.com", "twioadxytzmvdwfs")
+
+        empfaenger = [
+            "matthias.violante@gmail.com",
+            "matthias@violante.ch"
+        ]
+
+        betreff = f"Neue {modus.capitalize()} von {haendlername} (Kundennr. {login_nr})"
+
+        produkt_text = "\n".join(
+            f"• {e['Produktname']} – {e['Menge']} Stück" +
+            (f", Preis CHF {e['Preis']}" if e.get("Preis") else "")
+            for e in daten
+        )
+
+        inhalt = f"""
+Hallo,
+
+es wurde eine neue *{modus.capitalize()}*-Anfrage gesendet:
+
+• Händler: {haendlername}
+• Kundennummer: {login_nr}
+{produkt_text}
+• Kommentar: {kommentar or '–'}
+
+👉 Bitte im P5 Portal prüfen.
+
+Viele Grüsse  
+Eure P5 App
+"""
+
+        yag.send(to=empfaenger, subject=betreff, contents=inhalt)
+        print("✅ Mail erfolgreich gesendet")
+
+    except Exception as fehler:
+        print("❌ Fehler beim Mailversand:", fehler)
+
+def sende_bestaetigungs_mail_bestellung(haendlername, login_nr, daten, kommentar=""):
+    try:
+        yag = yagmail.SMTP("matthias.violante@gmail.com", "twioadxytzmvdwfs")
+
+        empfaenger = [
+            "matthias.violante@gmail.com",
+            "matthias@violante.ch"
+        ]
+
+        betreff = f"Neue Bestellung von {haendlername} (Kundennr. {login_nr})"
+
+        produkt_text = "\n".join(
+            f"• {e['Produktname']} – {e['Menge']} Stück" +
+            (f", Zielpreis CHF {e['Preis']}" if e.get('Preis') else "")
+            for e in daten
+        )
+
+        inhalt = f"""
+Hallo,
+
+es wurde eine neue *Bestellung zum Bestpreis* erfasst:
+
+• Händler: {haendlername}
+• Kundennummer: {login_nr}
+{produkt_text}
+• Kommentar: {kommentar or '–'}
+
+👉 Bitte die Bestellung erfassen und bestätigen.
+
+Viele Grüsse  
+Eure P5 App
+"""
+
+        yag.send(to=empfaenger, subject=betreff, contents=inhalt)
+        print("✅ Mail erfolgreich gesendet")
+
+    except Exception as fehler:
+        print("❌ Fehler beim Mailversand:", fehler)
+
+#apply_mobile_css()
 
 # ==== Seiteneinstellungen ====
 st.set_page_config(page_title="Verkaufszahlen", layout="wide")
@@ -342,7 +422,8 @@ def formular_ansicht(modus):
             "projekt": ("✅ Projektanfrage übermittelt", "📁"),
             "bestellung": ("✅ Bestellung übermittelt", "💯")
         }.get(modus, ("✅ Daten gespeichert", "✅"))
-        st.markdown(f"<div style='background-color:#e6f4ea;border-left:5px solid #34a853;padding:12px 16px;border-radius:6px;margin-top:1rem;margin-bottom:1rem;'><span style='font-size:18px;'>{meldung[1]} <strong>{meldung[0]}</strong></span></div>", unsafe_allow_html=True)
+        
+        st.sidebar.success(f"{meldung[1]} {meldung[0]}")
 
     eintraege = []
     for i, row in produkte_df.iterrows():
@@ -372,19 +453,35 @@ def formular_ansicht(modus):
                 "eintraege": eintraege,
                 "kommentar": kommentar,
             }
+
             haendler = st.session_state.get("haendler_info", {})
             haendlername = haendler.get("Firmenname", "unbekannt")
+            login_nr = haendler.get("Login-Nr.", "unbekannt")
+
             success = google_drive_upload(modus, haendlername, neuer_eintrag)
-            if success:
+
+            if modus in ["bestellung", "projekt"]:
+                try:
+                    st.info("📧 Versuche E-Mail zu senden …")
+                    sende_bestaetigungs_mail(modus, haendlername, login_nr, eintraege, kommentar)
+                    st.success("📧 E-Mail erfolgreich gesendet.")
+                except Exception as e:
+                    st.warning(f"📧 E-Mail konnte nicht gesendet werden: {str(e)}")
+
+
+                # ✅ Erfolgsmeldung für Sidebar setzen
+                st.session_state[f"zeige_bestaetigung"] = modus
+
                 historie_key = f"historie_{modus}"
                 if historie_key not in st.session_state:
                     st.session_state[historie_key] = []
                 st.session_state[historie_key].insert(0, neuer_eintrag)
+
                 st.session_state["reset_felder"] = True
-                st.session_state["zeige_bestaetigung"] = modus
                 st.rerun()
             else:
                 st.error("❌ Upload zu Google Drive fehlgeschlagen. Bitte erneut versuchen.")
+
 
     # ✅ Sidebar anzeigen
     zeige_sidebar_verlauf(modus)
@@ -525,8 +622,10 @@ def zeige_cashback_formular():
         (df_produkte["aktiv Cashback"].str.lower() == "x") &
         (df_produkte["Gruppe"].str.contains("BRAVIA THEATER", case=False, na=False))
     ]
-
+   # Mapping: Soundbar-Name → EAN
+    soundbar_ean_map = dict(zip(soundbars["Produktname"], soundbars["EAN"]))
     gruppen = sorted(cashback_produkte["Gruppe"].dropna().unique())
+ 
 
     # Callback
     def gruppe_cb_geaendert():
@@ -613,10 +712,48 @@ def zeige_cashback_formular():
                 "cashback_typ": "Double" if any(e["cashback_typ"] == "Double" for e in eintraege) else "Single",
                 "kommentar": kommentar
             }
+
             haendler = st.session_state.get("haendler_info", {})
             haendlername = haendler.get("Firmenname", "unbekannt")
+
             erfolg = google_drive_upload("Cashback", haendlername, eintrag)
 
+            # ✅ NEU: Automatische Sell-Outs für Cashback-Produkte
+            for e in eintraege:
+                # TV-Sell-Out (immer bei Cashback)
+                tv_sellout = {
+                    "datum": datetime.today().strftime("%Y-%m-%d"),
+                    "uhrzeit": datetime.today().strftime("%H:%M"),
+                    "kw": datetime.today().isocalendar()[1],
+                    "eintraege": [{
+                        "Produktname": e["Produktname"],
+                        "EAN": e["EAN"],
+                        "Menge": 1,
+                        "Seriennummer": e["Seriennummer"],
+                        "Kommentar": "Auto-Sell-Out durch Cashback"
+                    }],
+                    "kommentar": "Auto-Sell-Out durch Cashback"
+                }
+                google_drive_upload("verkauf", haendlername, tv_sellout)
+
+                # Soundbar-Sell-Out nur bei Double Cashback
+                if e["cashback_typ"] == "Double" and e.get("Soundbar") and e.get("Seriennummer_SB"):
+                    sb_sellout = {
+                        "datum": datetime.today().strftime("%Y-%m-%d"),
+                        "uhrzeit": datetime.today().strftime("%H:%M"),
+                        "kw": datetime.today().isocalendar()[1],
+                        "eintraege": [{
+                            "Produktname": e["Soundbar"],
+                            "EAN": soundbar_ean_map.get(e["Soundbar"], ""),
+                            "Menge": 1,
+                            "Seriennummer": e["Seriennummer_SB"],
+                            "Kommentar": "Auto-Sell-Out Soundbar durch Double Cashback"
+                        }],
+                        "kommentar": "Auto-Sell-Out Soundbar durch Cashback"
+                    }
+                    google_drive_upload("verkauf", haendlername, sb_sellout)
+
+            # ✅ Erfolgsmeldung & Reset
             if erfolg:
                 historie_key = "historie_cashback"
                 if historie_key not in st.session_state:
@@ -624,11 +761,11 @@ def zeige_cashback_formular():
                 st.session_state[historie_key].insert(0, eintrag)
                 st.success("🎉 Cashback-Anfrage erfolgreich eingereicht!")
                 st.session_state["reset_felder"] = True
-                st.session_state["trigger_reset_cb"] = True  # <- wie beim echten Reset-Button!
+                st.session_state["trigger_reset_cb"] = True
                 st.rerun()
-
             else:
                 st.error("❌ Fehler beim Hochladen. Bitte später erneut versuchen.")
+
 
     zeige_sidebar_verlauf("cashback")
 
